@@ -1,0 +1,75 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - feature/** # Catches branches like feature/my-new-feature
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12' # Ensure this matches your project's Python version
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Ensure this matches your project's Node.js version
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          # Explicitly install and pin versions of testing frameworks and dependencies
+          # to ensure compatibility and resolve the TypeError with TestClient
+          pip install pytest==8.4.1
+          pip install httpx==0.24.0
+          pip install starlette==0.27.0
+          pip install fastapi==0.95.0
+          # Add any other core backend dependencies here if they are not in requirements.txt
+          # For example, uvicorn might be needed to run the app, but not necessarily for tests
+          # pip install uvicorn
+
+      - name: Run backend tests
+        env:
+          # Set PYTHONPATH to allow Python to find the 'app' module
+          PYTHONPATH: ${{ github.workspace }}/backend
+        run: |
+          cd backend # Change into the backend directory before running pytest
+          pytest
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run frontend build (to validate)
+        run: |
+          cd frontend
+          npm run build
