@@ -1,0 +1,91 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Backend Dependencies
+      working-directory: backend
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Run Backend Unit Tests
+      working-directory: backend
+      run: |
+        source venv/bin/activate
+        pytest
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Frontend Dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Run Cypress E2E Tests
+      working-directory: frontend
+      run: npx cypress run
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and Push Backend Docker Image
+      run: |
+        docker build -t ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }} ./backend
+        docker push ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}
+
+    - name: Build and Push Frontend Docker Image
+      run: |
+        docker build -t ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }} ./frontend
+        docker push ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}
+
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Terraform Init & Apply
+      working-directory: infra
+      run: |
+        terraform init
+        terraform apply -auto-approve
