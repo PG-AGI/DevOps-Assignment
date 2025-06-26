@@ -41,6 +41,26 @@ jobs:
     - name: Install Frontend Dependencies
       working-directory: frontend
       run: npm ci
+    
+    - name: Start backend
+      run: |
+        cd backend
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+
+    - name: Wait for backend to start
+      run: npx wait-on http://localhost:8000
+
+    - name: Start frontend
+      run: |
+        cd frontend
+        npm run dev &
+
+    - name: Wait for frontend to start
+      run: npx wait-on http://localhost:3000
+
+    - name: Run Cypress E2E Tests
+      working-directory: frontend
+      run: npx cypress run
 
     - name: Run Cypress E2E Tests
       working-directory: frontend
