@@ -41,30 +41,14 @@ jobs:
     - name: Install Frontend Dependencies
       working-directory: frontend
       run: npm ci
-    
-    - name: Start backend
+
+    - name: Build Backend Docker Image
       run: |
-        cd backend
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        docker build -t ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }} ./backend
 
- 
-
-    - name: Start frontend
+    - name: Build Frontend Docker Image
       run: |
-        cd frontend
-        npm run dev &
-
-    
-    
-
-    - name: Start frontend app
-      working-directory: frontend
-      run: |
-        npm run dev &
-
-    
-
-    
+        docker build -t ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }} ./frontend
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v3
@@ -74,19 +58,13 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Log in to Amazon ECR
-      id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build and Push Backend Docker Image
-      run: |
-        docker build -t ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }} ./backend
-        docker push ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}
+    - name: Push Backend Docker Image
+      run: docker push ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}
 
-    - name: Build and Push Frontend Docker Image
-      run: |
-        docker build -t ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }} ./frontend
-        docker push ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}
-
+    - name: Push Frontend Docker Image
+      run: docker push ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}
 
   deploy:
     needs: build-and-test
@@ -104,8 +82,64 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Terraform Init & Apply
-      working-directory: infra
+    - name: Generate Backend Task Definition
       run: |
-        terraform init
-        terraform apply -auto-approve
+        cat > backend-task-def.json <<EOF
+        {
+          "family": "backend-task",
+          "networkMode": "awsvpc",
+          "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+          "containerDefinitions": [
+            {
+              "name": "backend",
+              "image": "${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 8000,
+                  "hostPort": 8000,
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ],
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512"
+        }
+        EOF
+
+    - name: Generate Frontend Task Definition
+      run: |
+        cat > frontend-task-def.json <<EOF
+        {
+          "family": "frontend-task",
+          "networkMode": "awsvpc",
+          "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+          "containerDefinitions": [
+            {
+              "name": "frontend",
+              "image": "${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 3000,
+                  "hostPort": 3000,
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ],
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512"
+        }
+        EOF
+
+    - name: Deploy Backend Task Definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: backend-task-def.json
+        service: ${{ secrets.ECS_BACKEND_SERVICE }}
+        cluster: ${{ secrets.ECS_CLUSTER_NAME }}
+        wait-for-service-stability: true
