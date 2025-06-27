@@ -49,6 +49,19 @@ jobs:
     - name: Build Frontend Docker Image
       run: |
         docker build -t ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }} ./frontend
+        
+    - name: Install Keploy CLI
+        run: |
+          curl --silent -L https://keploy.io/ent/install.sh | bash
+
+    - name: Run Keploy Test Suite
+      env:
+        KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}
+      run: |
+          keploy test-suite \
+            --app=82f7424b-e185-444c-af3f-7e485a16a4e6 \
+            --base-path http://localhost:3000 \
+            --cloud
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v3
