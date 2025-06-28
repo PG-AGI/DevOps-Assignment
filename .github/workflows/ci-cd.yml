@@ -1,0 +1,158 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [dev, main]
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Backend Dependencies
+      working-directory: backend
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Run Backend Unit Tests
+      working-directory: backend
+      run: |
+        source venv/bin/activate
+        pytest
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Frontend Dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Build Backend Docker Image
+      run: |
+        docker build -t ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }} ./backend
+
+    - name: Build Frontend Docker Image
+      run: |
+        docker build -t ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }} ./frontend
+        
+    - name: Install Keploy CLI
+        run: |
+          curl --silent -L https://keploy.io/ent/install.sh | bash
+
+    - name: Run Keploy Test Suite
+      env:
+        KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}
+      run: |
+          keploy test-suite \
+            --app=82f7424b-e185-444c-af3f-7e485a16a4e6 \
+            --base-path http://localhost:3000 \
+            --cloud
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Log in to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Push Backend Docker Image
+      run: docker push ${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}
+
+    - name: Push Frontend Docker Image
+      run: docker push ${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Generate Backend Task Definition
+      run: |
+        cat > backend-task-def.json <<EOF
+        {
+          "family": "backend-task",
+          "networkMode": "awsvpc",
+          "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+          "containerDefinitions": [
+            {
+              "name": "backend",
+              "image": "${{ secrets.ECR_BACKEND_REPO }}:${{ github.sha }}",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 8000,
+                  "hostPort": 8000,
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ],
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512"
+        }
+        EOF
+
+    - name: Generate Frontend Task Definition
+      run: |
+        cat > frontend-task-def.json <<EOF
+        {
+          "family": "frontend-task",
+          "networkMode": "awsvpc",
+          "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+          "containerDefinitions": [
+            {
+              "name": "frontend",
+              "image": "${{ secrets.ECR_FRONTEND_REPO }}:${{ github.sha }}",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 3000,
+                  "hostPort": 3000,
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ],
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512"
+        }
+        EOF
+
+    - name: Deploy Backend Task Definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: backend-task-def.json
+        service: ${{ secrets.ECS_BACKEND_SERVICE }}
+        cluster: ${{ secrets.ECS_CLUSTER_NAME }}
+        wait-for-service-stability: true
