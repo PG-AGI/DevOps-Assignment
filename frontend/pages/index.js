@@ -1,44 +1,60 @@
-import { useState } from 'react';
-
-const MOCK_INCIDENTS = [
-  {
-    id: 1,
-    title: "Production DB Latency",
-    status: "open",
-    created_at: "2023-10-20T10:00:00Z"
-  },
-  {
-    id: 2,
-    title: "Failed Deployment",
-    status: "resolved",
-    created_at: "2023-10-19T14:30:00Z"
-  },
-  {
-    id: 3,
-    title: "API Rate Limiting Issue",
-    status: "open",
-    created_at: "2023-10-21T09:15:00Z"
-  }
-];
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  const [incidents, setIncidents] = useState(MOCK_INCIDENTS);
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const toggleStatus = (id) => {
-    setIncidents(incidents.map(incident => {
-      if (incident.id === id) {
-        return {
-          ...incident,
-          status: incident.status === 'open' ? 'resolved' : 'open'
-        };
-      }
-      return incident;
-    }));
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const fetchIncidents = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/incidents`);
+      if (!response.ok) throw new Error('Failed to fetch incidents');
+      const data = await response.json();
+      setIncidents(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleStatus = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'open' ? 'resolved' : 'open';
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/incidents/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update status');
+
+      // Optimistic update
+      setIncidents(incidents.map(incident =>
+        incident.id === id ? { ...incident, status: newStatus } : incident
+      ));
+    } catch (err) {
+      alert('Error updating status: ' + err.message);
+    }
   };
 
   return (
     <div>
       <h1>Incident Notes</h1>
+
+      {loading && <div className="loading">Loading incidents...</div>}
+      {error && <div className="error-message">Error: {error}</div>}
+
+      {!loading && !error && incidents.length === 0 && (
+        <div className="empty-state">No incidents found. Create one to get started!</div>
+      )}
 
       <div className="incident-list">
         {incidents.map(incident => (
@@ -54,7 +70,7 @@ export default function Home() {
                 {new Date(incident.created_at).toLocaleDateString()}
               </span>
               <button
-                onClick={() => toggleStatus(incident.id)}
+                onClick={() => toggleStatus(incident.id, incident.status)}
                 className="toggle-btn"
               >
                 Mark as {incident.status === 'open' ? 'Resolved' : 'Open'}
@@ -65,6 +81,20 @@ export default function Home() {
       </div>
 
       <style jsx>{`
+        .loading, .empty-state {
+          text-align: center;
+          margin-top: 3rem;
+          color: #6b7280;
+        }
+
+        .error-message {
+          background: #ffe4e6;
+          color: #e11d48;
+          padding: 1rem;
+          border-radius: 8px;
+          margin-top: 2rem;
+        }
+
         .incident-list {
           display: flex;
           flex-direction: column;
