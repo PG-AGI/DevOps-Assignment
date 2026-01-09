@@ -1,0 +1,5 @@
+jobs:
+  deploy:
+    steps:
+      - uses: actions/checkout@v4
+      - run: terraform apply -auto-approve
