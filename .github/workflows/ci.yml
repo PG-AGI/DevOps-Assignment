@@ -1,0 +1,21 @@
+name: CI - Test and Build
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---------- DOCKER IMAGES
+      - name: Build backend Docker image
+        run: docker build -t backend backend/
+
+      - name: Build frontend Docker image
+        run: docker build -t frontend frontend/
