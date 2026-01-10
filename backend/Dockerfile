@@ -8,8 +8,7 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies in a virtualenv
-COPY backend/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
     && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
@@ -30,7 +29,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy app source
-COPY --chown=appuser:appuser backend/app /app
+COPY app /app
 
 # Expose port (FastAPI default)
 EXPOSE 8000
