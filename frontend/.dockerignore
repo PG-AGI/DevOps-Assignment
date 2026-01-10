@@ -1,0 +1,8 @@
+node_modules
+.next
+tests
+test-results
+playwright.config.js
+.git
+.gitignore
+.env.example
