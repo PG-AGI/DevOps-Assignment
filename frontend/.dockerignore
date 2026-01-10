@@ -5,4 +5,4 @@ test-results
 playwright.config.js
 .git
 .gitignore
-.env.example
+.env*

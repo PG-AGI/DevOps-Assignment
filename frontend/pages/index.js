@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import axios from 'axios';
+import api from '../lib/api';
 
 export default function Home() {
   const [message, setMessage] = useState('Loading...');
@@ -10,12 +10,12 @@ export default function Home() {
     const fetchData = async () => {
       try {
         // First check if backend is healthy
-        const healthCheck = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/health`);
-        
+        const healthCheck = await api.get('/api/health');
+
         if (healthCheck.data.status === 'healthy') {
           setStatus('Backend is connected!');
           // Then fetch the message
-          const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/message`);
+          const response = await api.get('/api/message');
           setMessage(response.data.message);
         }
       } catch (error) {
@@ -46,7 +46,14 @@ export default function Home() {
           <p>{message}</p>
         </div>
         <div className="info">
-          <p>Backend URL: {process.env.NEXT_PUBLIC_API_URL}</p>
+          <p>
+            Backend URL:{" "}
+            {typeof window !== "undefined"
+              ? process.env.NODE_ENV === "production"
+                ? `${window.location.origin}`
+                : process.env.NEXT_PUBLIC_API_URL
+              : process.env.NEXT_PUBLIC_API_URL}
+          </p>
         </div>
       </main>
 
