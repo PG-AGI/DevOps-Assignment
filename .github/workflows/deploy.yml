@@ -1,5 +1,27 @@
+name: Deploy to AWS & GCP
+
+on:
+  push:
+    branches: [main]
+
 jobs:
   deploy:
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - run: terraform apply -auto-approve
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init
+
+      - name: Terraform Apply
+        run: |
+          cd terraform
+          terraform apply -auto-approve
+

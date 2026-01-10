@@ -1,0 +1,21 @@
+# Node
+node_modules/
+.next/
+npm-debug.log
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# OS
+.DS_Store
+
+# Env
+.env
+
