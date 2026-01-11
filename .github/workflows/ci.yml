@@ -1,0 +1,114 @@
+name: CI - Develop (AWS + Azure)
+
+on:
+  push:
+    branches:
+      - develop
+
+# ✅ REQUIRED PERMISSIONS
+permissions:
+  contents: read
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AZURE_ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}
+
+    steps:
+      # -------------------------
+      # Checkout
+      # -------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -------------------------
+      # Backend setup
+      # -------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      # -------------------------
+      # Frontend setup
+      # -------------------------
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      # -------------------------
+      # Docker Build
+      # -------------------------
+      - name: Build backend image
+        run: docker build -t backend:${{ github.sha }} ./backend
+
+      - name: Build frontend image
+        run: docker build -t frontend:${{ github.sha }} ./frontend
+
+      # =================================================
+      # AWS ECR
+      # =================================================
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to AWS ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin \
+            $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Ensure ECR repositories exist
+        run: |
+          for repo in backend frontend; do
+            aws ecr describe-repositories --repository-names $repo \
+              || aws ecr create-repository --repository-name $repo
+          done
+
+      - name: Push images to AWS ECR
+        run: |
+          for repo in backend frontend; do
+            docker tag $repo:${{ github.sha }} \
+              $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$repo:${{ github.sha }}
+            docker push \
+              $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$repo:${{ github.sha }}
+          done
+
+      # =================================================
+      # Azure ACR (FIXED)
+      # =================================================
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: |
+          az acr login --name $AZURE_ACR_NAME
+
+      - name: Push images to Azure ACR
+        run: |
+          for repo in backend frontend; do
+            docker tag $repo:${{ github.sha }} \
+              $AZURE_ACR_NAME.azurecr.io/$repo:${{ github.sha }}
+            docker push \
+              $AZURE_ACR_NAME.azurecr.io/$repo:${{ github.sha }}
+          done
