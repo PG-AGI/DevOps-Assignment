@@ -1,21 +1,26 @@
-# Node
-node_modules/
-.next/
-npm-debug.log
+# OS / IDE
+.DS_Store
+.idea
+.vscode
 
 # Python
-venv/
 __pycache__/
 *.pyc
+venv/
+
+# Node
+node_modules/
 
 # Terraform
-.terraform/
 *.tfstate
 *.tfstate.backup
+.terraform/
 
-# OS
-.DS_Store
+# AWS CLI / binaries
+aws/
+awscliv2.zip
 
-# Env
+# Secrets
 .env
+.env.*
 
