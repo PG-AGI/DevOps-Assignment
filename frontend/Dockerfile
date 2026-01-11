@@ -24,7 +24,6 @@ ENV PORT=3000
 # Copy build output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
 
 # Change ownership to non-root user
 RUN chown -R node:node /app
