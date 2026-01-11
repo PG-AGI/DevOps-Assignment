@@ -9,12 +9,11 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // First check if backend is healthy
-        const healthCheck = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/health`);
-        
+        // Correct backend health endpoint
+        const healthCheck = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/health`);
+
         if (healthCheck.data.status === 'healthy') {
           setStatus('Backend is connected!');
-          // Then fetch the message
           const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/message`);
           setMessage(response.data.message);
         }
@@ -51,59 +50,15 @@ export default function Home() {
       </main>
 
       <style jsx>{`
-        .container {
-          min-height: 100vh;
-          padding: 0 0.5rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-        }
-
-        main {
-          padding: 5rem 0;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          max-width: 800px;
-          margin: 0 auto;
-          text-align: center;
-        }
-
-        h1 {
-          margin: 0;
-          line-height: 1.15;
-          font-size: 3rem;
-          margin-bottom: 2rem;
-        }
-
-        .message-box {
-          margin: 2rem 0;
-          padding: 1.5rem;
-          border: 1px solid #eaeaea;
-          border-radius: 10px;
-          width: 100%;
-          max-width: 600px;
-        }
-
-        .success {
-          color: #0070f3;
-          font-weight: bold;
-        }
-
-        .error {
-          color: #f00;
-          font-weight: bold;
-        }
-
-        .info {
-          margin-top: 2rem;
-          font-size: 0.9rem;
-          color: #666;
-        }
+        .container { min-height: 100vh; padding: 0 0.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        main { padding: 5rem 0; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 800px; margin: 0 auto; text-align: center; }
+        h1 { margin: 0; line-height: 1.15; font-size: 3rem; margin-bottom: 2rem; }
+        .message-box { margin: 2rem 0; padding: 1.5rem; border: 1px solid #eaeaea; border-radius: 10px; width: 100%; max-width: 600px; }
+        .success { color: #0070f3; font-weight: bold; }
+        .error { color: #f00; font-weight: bold; }
+        .info { margin-top: 2rem; font-size: 0.9rem; color: #666; }
       `}</style>
     </div>
   );
 }
+

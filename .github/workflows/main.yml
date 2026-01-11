@@ -1,0 +1,22 @@
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Backend tests
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pytest
+
+      - name: Frontend tests
+        run: |
+          cd frontend
+          npm install
+          npm run test
+
+      - name: Build & Push Docker Images
+        run: |
+          docker build -t backend:${{ github.sha }} backend
+          docker build -t frontend:${{ github.sha }} frontend

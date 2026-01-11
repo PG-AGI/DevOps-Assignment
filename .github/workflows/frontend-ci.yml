@@ -1,0 +1,35 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - frontend/**
+
+jobs:
+  frontend-test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test -- --watch=false
+
+      - name: Build Docker image
+        run: |
+          docker build -t frontend:${{ github.sha }} frontend
+
