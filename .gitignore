@@ -24,3 +24,18 @@ awscliv2.zip
 .env
 .env.*
 terraform.tfvars
+
+# AWS CLI
+aws/
+awscliv2.zip
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# Node / Python
+node_modules/
+venv/
+__pycache__/
+
