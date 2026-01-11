@@ -5,6 +5,10 @@ on:
     branches:
       - develop
 
+# ✅ REQUIRED PERMISSIONS
+permissions:
+  contents: read
+
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
@@ -22,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------
-      # Backend tests
+      # Backend setup
       # -------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,13 +38,8 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      # - name: Run backend unit tests
-      #   run: |
-      #     cd backend
-      #     pytest
-
       # -------------------------
-      # Frontend tests
+      # Frontend setup
       # -------------------------
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -52,11 +51,6 @@ jobs:
           cd frontend
           npm install
 
-      # - name: Run frontend tests
-      #   run: |
-      #     cd frontend
-      #     npm test -- --watch=false
-
       # -------------------------
       # Docker Build
       # -------------------------
@@ -67,7 +61,7 @@ jobs:
         run: docker build -t frontend:${{ github.sha }} ./frontend
 
       # =================================================
-      # AWS ECR: Login + Create Repo if Missing + Push
+      # AWS ECR
       # =================================================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -99,7 +93,7 @@ jobs:
           done
 
       # =================================================
-      # Azure ACR: Login + Push (repo auto-created)
+      # Azure ACR (FIXED)
       # =================================================
       - name: Azure Login
         uses: azure/login@v2
@@ -108,7 +102,7 @@ jobs:
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          
+
       - name: Login to Azure ACR
         run: |
           az acr login --name $AZURE_ACR_NAME
