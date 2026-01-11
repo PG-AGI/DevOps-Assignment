@@ -23,4 +23,4 @@ awscliv2.zip
 # Secrets
 .env
 .env.*
-
+terraform.tfvars

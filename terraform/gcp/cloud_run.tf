@@ -1,5 +1,5 @@
 ############################################################
-# Cloud Run Backend Service
+# Backend Cloud Run Service
 ############################################################
 resource "google_cloud_run_service" "backend" {
   name     = "backend-service"
@@ -9,8 +9,15 @@ resource "google_cloud_run_service" "backend" {
     spec {
       containers {
         image = var.backend_image
-        ports {
-          container_port = 8080
+
+        env {
+          name = "APP_SECRET"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.backend_secret.secret_id
+              key  = "latest"
+            }
+          }
         }
       }
     }
@@ -20,9 +27,16 @@ resource "google_cloud_run_service" "backend" {
     percent         = 100
     latest_revision = true
   }
+
+  depends_on = [
+    google_secret_manager_secret_version.backend_secret_version,
+    google_secret_manager_secret_iam_member.cloudrun_access
+  ]
 }
 
-# Allow public access to backend
+
+
+# Public access to backend
 resource "google_cloud_run_service_iam_member" "public_backend" {
   service  = google_cloud_run_service.backend.name
   location = var.region
@@ -31,7 +45,7 @@ resource "google_cloud_run_service_iam_member" "public_backend" {
 }
 
 ############################################################
-# Cloud Run Frontend Service
+# Frontend Cloud Run Service
 ############################################################
 resource "google_cloud_run_service" "frontend" {
   name     = "frontend-service"
@@ -41,11 +55,11 @@ resource "google_cloud_run_service" "frontend" {
     spec {
       containers {
         image = var.frontend_image
+
         ports {
           container_port = 3000
         }
 
-        # Pass backend URL as environment variable
         env {
           name  = "NEXT_PUBLIC_API_URL"
           value = google_cloud_run_service.backend.status[0].url
@@ -59,10 +73,12 @@ resource "google_cloud_run_service" "frontend" {
     latest_revision = true
   }
 
-  depends_on = [google_cloud_run_service.backend]
+  depends_on = [
+    google_cloud_run_service.backend
+  ]
 }
 
-# Allow public access to frontend
+# Public access to frontend
 resource "google_cloud_run_service_iam_member" "public_frontend" {
   service  = google_cloud_run_service.frontend.name
   location = var.region

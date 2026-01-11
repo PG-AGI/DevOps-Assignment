@@ -24,3 +24,8 @@ def message():
 def root():
     return {"message": "Backend root endpoint is working!"}
 
+@app.get("/api/secret")
+def read_secret():
+    secret = os.getenv("APP_SECRET_KEY", "NOT_SET")
+    return {
+        "secret_loaded": secret != "NOT_SET"

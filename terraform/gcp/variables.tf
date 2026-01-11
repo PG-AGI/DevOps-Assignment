@@ -1,17 +1,31 @@
 variable "project_id" {
-  default = "ornate-variety-466503-u5"
+  type = string
 }
 
 variable "region" {
+  type    = string
   default = "europe-north1"
 }
 
 variable "backend_image" {
-  default = "europe-north1-docker.pkg.dev/ornate-variety-466503-u5/devops-assignment/backend:latest"
+  description = "Backend container image"
+  type        = string
 }
 
 variable "frontend_image" {
-  default = "europe-north1-docker.pkg.dev/ornate-variety-466503-u5/devops-assignment/frontend:latest"
+  description = "Frontend container image"
+  type        = string
 }
+
+variable "backend_secret_value" {
+  description = "Backend secret value"
+  type        = string
+  sensitive   = true
+}
+variable "project_number" {
+  description = "GCP project number"
+  type        = string
+}
+
 
 
