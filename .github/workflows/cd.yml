@@ -1,0 +1,81 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # -------------------------
+      # Checkout
+      # -------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------
+      # Terraform setup
+      # -------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      # -------------------------
+      # AWS authentication
+      # -------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # -------------------------
+      # GCP authentication
+      # -------------------------
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # -------------------------
+      # Deploy AWS infrastructure
+      # -------------------------
+      - name: Terraform Init (AWS)
+        working-directory: infra/aws
+        run: terraform init
+
+      - name: Terraform Apply (AWS)
+        working-directory: infra/aws
+        run: |
+          terraform apply -auto-approve \
+            -var="image_tag=${IMAGE_TAG}" \
+            -var="aws_account_id=${AWS_ACCOUNT_ID}" \
+            -var="aws_region=${AWS_REGION}" \
+            
+
+      # -------------------------
+      # Deploy GCP infrastructure
+      # -------------------------
+      - name: Terraform Init (GCP)
+        working-directory: infra/gcp
+        run: terraform init
+
+      - name: Terraform Apply (GCP)
+        working-directory: infra/gcp
+        run: |
+          terraform apply -auto-approve \
+            -var="image_tag=${IMAGE_TAG}" \
+            -var="region=${GCP_REGION}" \
+            -var="project_id=${GCP_PROJECT_ID}"
