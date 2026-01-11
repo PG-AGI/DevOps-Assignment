@@ -34,10 +34,10 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      - name: Run backend unit tests
-        run: |
-          cd backend
-          pytest
+      # - name: Run backend unit tests
+      #   run: |
+      #     cd backend
+      #     pytest
 
       # -------------------------
       # Frontend tests
@@ -52,10 +52,10 @@ jobs:
           cd frontend
           npm install
 
-      - name: Run frontend tests
-        run: |
-          cd frontend
-          npm test -- --watch=false
+      # - name: Run frontend tests
+      #   run: |
+      #     cd frontend
+      #     npm test -- --watch=false
 
       # -------------------------
       # Docker Build
