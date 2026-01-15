@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  backend:
+    image: pgagi-backend
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:5000"
+    image: pgagi-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
