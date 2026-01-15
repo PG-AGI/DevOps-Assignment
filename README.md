@@ -99,6 +99,7 @@ docker compose up -d
 ### Access the Application
 - Frontend: http://localhost:3000
 - Backend Health: http://localhost:5000/api/health
+- Backend Message: http://localhost:5000/api/message
 
 ---
 
