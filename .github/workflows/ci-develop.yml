@@ -1,0 +1,296 @@
+name: CI Pipeline - Develop Branch
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  SHA_TAG: ${{ github.sha }}
+  IMAGE_BACKEND: backend
+  IMAGE_FRONTEND: frontend
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  # Multi-cloud registries (commented out - using Docker Hub instead)
+  # REGISTRY_AWS: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  # REGISTRY_GCP: gcr.io
+  # REGISTRY_AZURE: ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io
+
+jobs:
+  # ---------------- TEST JOB ----------------
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest app/test_main.py -v --tb=short
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Start Backend Server
+        working-directory: backend
+        run: |
+          python -m pip install uvicorn
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Start Frontend Server
+        working-directory: frontend
+        run: |
+          nohup npm start &
+          sleep 10
+          curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:3000
+
+      - name: Run e2e tests
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npx playwright test
+
+  # ---------------- SECURITY SCAN ----------------
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------- BUILD AND PUSH ----------------
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          SHA=${{ github.sha }}
+          SHA_SHORT=${SHA:0:7}
+          echo "tag=${SHA_SHORT}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${SHA_SHORT}"
+          
+          # Set Docker Hub username (use secret if available, otherwise use github username)
+          DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          if [ -z "$DOCKER_USER" ]; then
+            DOCKER_USER="${{ github.repository_owner }}"
+          fi
+          echo "dockerhub-user=${DOCKER_USER}" >> $GITHUB_OUTPUT
+          echo "Docker Hub user: ${DOCKER_USER}"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ steps.image-tag.outputs.dockerhub-user }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Build and push to Docker Hub
+      - name: Build and push backend image to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-backend:${{ steps.image-tag.outputs.tag }}
+            ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-frontend:${{ steps.image-tag.outputs.tag }}
+            ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Vulnerability scanning with Trivy
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-backend:${{ steps.image-tag.outputs.tag }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan frontend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.image-tag.outputs.dockerhub-user }}/pg-agi-frontend:${{ steps.image-tag.outputs.tag }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+      
+      # ============================================================
+      # MULTI-CLOUD SETUP (COMMENTED OUT - USING DOCKER HUB INSTEAD)
+      # ============================================================
+      # 
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.AWS_REGION }}
+      #
+      # - name: Login to AWS ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+      #
+      # - name: Authenticate to GCP
+      #   uses: google-github-actions/auth@v2
+      #   with:
+      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
+      #
+      # - name: Set up Cloud SDK
+      #   uses: google-github-actions/setup-gcloud@v2
+      #
+      # - name: Configure Docker for GCR
+      #   run: gcloud auth configure-docker
+      #
+      # - name: Login to Azure Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io
+      #     username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+      #     password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+      #
+      # # Build and push to AWS ECR
+      # - name: Build and push backend image to AWS ECR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./backend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_AWS }}/pg-agi-backend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_AWS }}/pg-agi-backend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+      #
+      # - name: Build and push frontend image to AWS ECR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./frontend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_AWS }}/pg-agi-frontend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_AWS }}/pg-agi-frontend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+      #
+      # # Build and push to GCP GCR
+      # - name: Build and push backend image to GCR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./backend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-backend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-backend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+      #
+      # - name: Build and push frontend image to GCR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./frontend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-frontend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-frontend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+      #
+      # # Build and push to Azure ACR
+      # - name: Build and push backend image to Azure ACR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./backend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_AZURE }}/pg-agi-backend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_AZURE }}/pg-agi-backend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+      #
+      # - name: Build and push frontend image to Azure ACR
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./frontend
+      #     push: true
+      #     tags: |
+      #       ${{ env.REGISTRY_AZURE }}/pg-agi-frontend:${{ steps.image-tag.outputs.tag }}
+      #       ${{ env.REGISTRY_AZURE }}/pg-agi-frontend:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+
+      - name: Create deployment artifact
+        run: |
+          cat > deploy-info.json <<EOF
+          {
+            "image_tag": "${{ steps.image-tag.outputs.tag }}",
+            "commit_sha": "${{ github.sha }}",
+            "commit_message": "${{ github.event.head_commit.message }}",
+            "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          }
+          EOF
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-info
+          path: deploy-info.json
+          retention-days: 30

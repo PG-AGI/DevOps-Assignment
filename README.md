@@ -1,103 +1,206 @@
-# DevOps Assignment
+Project Overview
+=================
 
-This project consists of a FastAPI backend and a Next.js frontend that communicates with the backend.
+Purpose
+-------
+Full-stack application with FastAPI backend and Next.js frontend, automated CI/CD via GitHub Actions, and Docker image publication to Docker Hub.
 
-## Project Structure
+What's Included
+---------------
+- Backend: FastAPI service with pytest tests
+- Frontend: Next.js application with Playwright E2E tests
+- CI: GitHub Actions workflow (develop branch)
+- Docker: Multi-stage builds for backend and frontend; images pushed to Docker Hub
+- Documentation: Setup, architecture, pipeline references, and infrastructure guides
 
+Quick Links
+-----------
+- Getting started: [QUICKSTART.md](QUICKSTART.md)
+- For engineers: [START-HERE.md](START-HERE.md)
+- Full documentation map: [CI-CD-INDEX.md](CI-CD-INDEX.md)
+
+Repository Structure
+====================
+
+Layout
+------
 ```
 .
-├── backend/               # FastAPI backend
+├── backend/                      # FastAPI backend
 │   ├── app/
-│   │   └── main.py       # Main FastAPI application
-│   └── requirements.txt    # Python dependencies
-└── frontend/              # Next.js frontend
-    ├── pages/
-    │   └── index.js     # Main page
-    ├── public/            # Static files
-    └── package.json       # Node.js dependencies
+│   │   ├── main.py              # FastAPI application
+│   │   └── test_main.py         # pytest tests
+│   ├── Dockerfile               # Backend container image
+│   └── requirements.txt          # Python dependencies
+├── frontend/                     # Next.js frontend
+│   ├── pages/
+│   │   └── index.js             # Main application page
+│   ├── e2e/
+│   │   └── frontend.spec.ts     # Playwright E2E tests
+│   ├── Dockerfile               # Frontend container image
+│   ├── package.json             # Node.js dependencies
+│   └── playwright.package.json  # Playwright dependencies
+├── .github/
+│   └── workflows/
+│       ├── ci-develop.yml       # CI pipeline (develop branch)
+│       ├── deploy-main.yml.disabled    # Optional deployment (main)
+│       └── cd-main.yml.disabled        # Optional deployment (main)
+├── infra/                       # Infrastructure and deployment guides
+│   ├── terraform/               # Terraform modules for cloud deployment
+│   ├── aws-ecs-config.md        # ECS deployment template
+│   ├── k8s-deployment.md        # Kubernetes template
+│   └── DEPLOYMENT-CHECKLIST.md  # Pre-deployment checklist
+└── docs/
+    ├── START-HERE.md            # Engineer onboarding
+    ├── QUICKSTART.md            # 5-minute setup
+    ├── CI-CD-INDEX.md           # Documentation map
+    └── ...                       # Reference guides
 ```
 
-## Prerequisites
+Local Development Setup
+=======================
 
-- Python 3.8+
-- Node.js 16+
+Prerequisites
+-------------
+- Python 3.12+
+- Node.js 20+
 - npm or yarn
+- Git
 
-## Backend Setup
+Backend Setup (FastAPI)
+-----------------------
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+**Step 1: Navigate to backend directory**
+```bash
+cd backend
+```
 
-2. Create a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   ```
+**Step 2: Create and activate virtual environment**
+```bash
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Step 3: Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-4. Run the FastAPI server:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
+**Step 4: Run tests (optional)**
+```bash
+python -m pytest app/test_main.py
+```
 
-   The backend will be available at `http://localhost:8000`
+**Step 5: Start the server**
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-## Frontend Setup
+Backend is now available at `http://localhost:8000`
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
+Frontend Setup (Next.js)
+------------------------
 
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn
-   ```
+**Step 1: Navigate to frontend directory**
+```bash
+cd frontend
+```
 
-3. Configure the backend URL (if different from default):
-   - Open `.env.local`
-   - Update `NEXT_PUBLIC_API_URL` with your backend URL
-   - Example: `NEXT_PUBLIC_API_URL=https://your-backend-url.com`
+**Step 2: Install dependencies**
+```bash
+npm ci
+# or
+npm install
+```
 
-4. Run the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+**Step 3: Install Playwright browsers (for E2E tests)**
+```bash
+npx playwright install --with-deps
+```
 
-   The frontend will be available at `http://localhost:3000`
+**Step 4: Run tests (optional)**
+```bash
+npm run lint
+npx playwright test
+```
 
-## Changing the Backend URL
+**Step 5: Start development server**
+```bash
+npm run dev
+```
+
+Frontend is now available at `http://localhost:3000`
+
+Configuration
+=============
+
+Backend URL Configuration
+-------------------------
 
 To change the backend URL that the frontend connects to:
 
-1. Open the `.env.local` file in the frontend directory
-2. Update the `NEXT_PUBLIC_API_URL` variable with your new backend URL
-3. Save the file
-4. Restart the Next.js development server for changes to take effect
-
-Example:
-```
-NEXT_PUBLIC_API_URL=https://your-new-backend-url.com
+**Step 1: Create .env.local in frontend directory**
+```bash
+# frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## For deployment:
-   ```bash
-   npm run build
-   # or
-   yarn build
-   ```
+**Step 2: For production deployment**
+```bash
+NEXT_PUBLIC_API_URL=https://your-api-domain.com
+```
 
-   AND
+**Step 3: Restart the Next.js development server**
+```bash
+npm run dev
+```
+
+Docker Build (Local)
+--------------------
+
+**Backend image**
+```bash
+cd backend
+docker build -t pg-agi-backend:local .
+docker run -p 8000:8000 pg-agi-backend:local
+```
+
+**Frontend image**
+```bash
+cd frontend
+docker build -t pg-agi-frontend:local .
+docker run -p 3000:3000 pg-agi-frontend:local
+```
+
+CI/CD Pipeline
+==============
+
+Overview
+--------
+- Trigger: Push to `develop` branch
+- Tests: Backend (pytest), Frontend (lint, npm test, Playwright E2E)
+- Build: Docker images for backend and frontend
+- Publish: Images pushed to Docker Hub with `latest` and short-SHA tags
+
+See [.github/PIPELINE.md](.github/PIPELINE.md) for detailed pipeline information.
+
+Secrets Required
+----------------
+- `DOCKERHUB_TOKEN`: Docker Hub access token (required)
+- `DOCKERHUB_USERNAME`: Docker Hub username (optional; defaults to repository owner)
+
+Setup instructions: [.github/SECRETS.md](.github/SECRETS.md)
+
+Next Steps
+==========
+
+1. Review [QUICKSTART.md](QUICKSTART.md) for 5-minute setup
+2. Read [START-HERE.md](START-HERE.md) for architecture overview
+3. Consult [CI-CD-INDEX.md](CI-CD-INDEX.md) for complete documentation map
+4. Enable deployment workflows when ready: [infra/DEPLOYMENT-CHECKLIST.md](infra/DEPLOYMENT-CHECKLIST.md)
 
    ```bash
    npm run start

@@ -21,6 +21,10 @@ app.add_middleware(
 async def health_check():
     return {"status": "healthy", "message": "Backend is running successfully"}
 
+@app.get("/health")
+async def health_root():
+    return {"status": "ok"}
+
 @app.get("/api/message")
 async def get_message():
     return {"message": "You've successfully integrated the backend!"}

@@ -1,0 +1,43 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and update with your values
+
+# Global Configuration
+environment  = "production"
+project_name = "pg-agi"
+
+# Deployment Targets
+deploy_to_aws = true
+deploy_to_gcp = true
+
+# AWS Configuration
+aws_region             = "us-east-1"
+aws_vpc_cidr           = "10.0.0.0/16"
+aws_availability_zones = ["us-east-1a", "us-east-1b"]
+
+# AWS Images (Update after building and pushing to ECR)
+# backend_image_aws  = "123456789012.dkr.ecr.us-east-1.amazonaws.com/pg-agi-backend:latest"
+# frontend_image_aws = "123456789012.dkr.ecr.us-east-1.amazonaws.com/pg-agi-frontend:latest"
+
+# GCP Configuration
+gcp_project_id = "your-gcp-project-id"
+gcp_region     = "us-central1"
+
+# GCP Images (Update after building and pushing to GCR)
+# backend_image_gcp  = "gcr.io/your-gcp-project-id/pg-agi-backend:latest"
+# frontend_image_gcp = "gcr.io/your-gcp-project-id/pg-agi-frontend:latest"
+
+# Application Configuration
+backend_cpu         = 512
+backend_memory      = 1024
+frontend_cpu        = 512
+frontend_memory     = 1024
+backend_port        = 8000
+frontend_port       = 3000
+health_check_path   = "/health"
+desired_count       = 2
+
+# GCP Scaling
+gcp_min_instances = 1
+gcp_max_instances = 10
+gcp_cpu_limit     = "1"
+gcp_memory_limit  = "512Mi"

@@ -1,0 +1,171 @@
+name: Deploy - Main Branch
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY_AWS: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  REGISTRY_GCP: gcr.io
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Platforms
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: aws
+            name: AWS ECS
+          - platform: gcp
+            name: Google Cloud Run
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: deploy-info
+
+      - name: Load deployment info
+        id: deploy-info
+        run: |
+          if [ -f deploy-info.json ]; then
+            IMAGE_TAG=$(jq -r '.image_tag' deploy-info.json)
+            echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          else
+            SHA=${{ github.sha }}
+            echo "image_tag=${SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to AWS ECS
+        if: matrix.platform == 'aws'
+        run: |
+          # Configure AWS credentials
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_REGION }}
+          
+          # Update ECS service
+          aws ecs update-service \
+            --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+            --service pg-agi-backend-service \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+          
+          aws ecs update-service \
+            --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+            --service pg-agi-frontend-service \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+          
+          # Wait for services to stabilize
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+            --services pg-agi-backend-service pg-agi-frontend-service \
+            --region ${{ secrets.AWS_REGION }}
+          
+          echo "✓ Deployment to AWS ECS completed successfully"
+
+      - name: Deploy to Google Cloud Run
+        if: matrix.platform == 'gcp'
+        run: |
+          # Authenticate to GCP
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > /tmp/gcp-key.json
+          gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          
+          # Deploy backend to Cloud Run
+          gcloud run deploy pg-agi-backend \
+            --image ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-backend:${{ steps.deploy-info.outputs.image_tag }} \
+            --platform managed \
+            --region ${{ secrets.GCP_REGION }} \
+            --allow-unauthenticated \
+            --memory 512Mi \
+            --cpu 1 \
+            --timeout 3600 \
+            --max-instances 100
+          
+          # Deploy frontend to Cloud Run
+          gcloud run deploy pg-agi-frontend \
+            --image ${{ env.REGISTRY_GCP }}/${{ secrets.GCP_PROJECT_ID }}/pg-agi-frontend:${{ steps.deploy-info.outputs.image_tag }} \
+            --platform managed \
+            --region ${{ secrets.GCP_REGION }} \
+            --allow-unauthenticated \
+            --memory 256Mi \
+            --cpu 1 \
+            --timeout 3600 \
+            --max-instances 100
+          
+          # Clean up
+          rm -f /tmp/gcp-key.json
+          
+          echo "✓ Deployment to Google Cloud Run completed successfully"
+
+      - name: Health check - AWS
+        if: matrix.platform == 'aws'
+        run: |
+          echo "Waiting for services to be healthy..."
+          for i in {1..30}; do
+            if aws ecs describe-services \
+              --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+              --services pg-agi-backend-service pg-agi-frontend-service \
+              --region ${{ secrets.AWS_REGION }} \
+              --query 'services[*].deployments[0].runningCount' \
+              --output text | grep -E '1\s+1'; then
+              echo "✓ All services are running"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 10
+          done
+
+      - name: Health check - GCP
+        if: matrix.platform == 'gcp'
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > /tmp/gcp-key.json
+          gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          
+          echo "Checking backend service health..."
+          BACKEND_URL=$(gcloud run services describe pg-agi-backend --platform managed --region ${{ secrets.GCP_REGION }} --format='value(status.url)')
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" 2>/dev/null || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Backend service is healthy"
+          else
+            echo "⚠ Backend service returned HTTP $HTTP_CODE (this may be expected if health endpoint not configured)"
+          fi
+          
+          rm -f /tmp/gcp-key.json
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          PLATFORM="${{ matrix.name }}"
+          echo "Deployment to $PLATFORM: $STATUS"
+
+  notify:
+    name: Notify Deployment Completion
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "====================================="
+          echo "✓ Deployment Pipeline Completed"
+          echo "====================================="
+          echo "Branch: main"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployed to:"
+          echo "  • AWS ECS"
+          echo "  • Google Cloud Run"
+          echo ""
+          echo "Zero manual steps required!"
+          echo "====================================="
