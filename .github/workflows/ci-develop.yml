@@ -6,58 +6,52 @@ on:
       - develop
 
 jobs:
-  build-test:
+  build-test-push:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # Checkout
+      - uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python for backend tests
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # Python
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install backend dependencies
+      - name: Backend tests
         working-directory: backend
         run: |
           pip install -r requirements.txt
-
-      - name: Run backend tests
-        working-directory: backend
-        run: |
           pytest
 
-      # 3️⃣ Set up Node.js for frontend
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      # Node
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install frontend dependencies
+      - name: Frontend build
         working-directory: frontend
         run: |
           npm ci
-
-      - name: Run frontend build check
-        working-directory: frontend
-        run: |
           npm run build
 
-      # 4️⃣ Login to container registry (placeholder)
-      - name: Login to Container Registry
-        run: echo "Registry login will be added next"
+      # Docker login to ECR
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # 5️⃣ Build & tag Docker images using Git SHA
-      - name: Build Docker images
+      # Build & push images
+      - name: Build and push Docker images
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
 
-          docker build -t pgagi-backend:${SHORT_SHA} backend
-          docker build -t pgagi-frontend:${SHORT_SHA} frontend
+          BACKEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-backend:$SHORT_SHA
+          FRONTEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-frontend:$SHORT_SHA
 
-      # 6️⃣ Push images (placeholder)
-      - name: Push Docker images
-        run: echo "Docker push will be added once registry is configured"
+          docker build -t $BACKEND_IMAGE backend
+          docker build -t $FRONTEND_IMAGE frontend
+
+          docker push $BACKEND_IMAGE
+          docker push $FRONTEND_IMAGE
