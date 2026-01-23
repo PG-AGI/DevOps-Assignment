@@ -10,10 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------- AWS EKS ----------------
+      # 2️⃣ Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -21,19 +22,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Update kubeconfig for EKS
+      # 3️⃣ Update kubeconfig for EKS
+      - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
             --name ${{ secrets.EKS_CLUSTER_NAME }}
 
-      - name: Deploy to AWS EKS
+      # 4️⃣ Deploy backend and frontend
+      - name: Deploy to EKS
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
 
+          BACKEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-backend:$SHORT_SHA
+          FRONTEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-frontend:$SHORT_SHA
+
           kubectl set image deployment/pgagi-backend \
-            backend=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pgagi-backend:$SHORT_SHA
+            backend=$BACKEND_IMAGE
 
           kubectl set image deployment/pgagi-frontend \
-            frontend=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pgagi-frontend:$SHORT_SHA
+            frontend=$FRONTEND_IMAGE
+
+          kubectl rollout status deployment/pgagi-backend
+          kubectl rollout status deployment/pgagi-frontend
 
