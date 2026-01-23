@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgagi-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgagi-backend
+  template:
+    metadata:
+      labels:
+        app: pgagi-backend
+    spec:
+      containers:
+        - name: backend
+          image: kavithakumari062001/pgagi-backend:latest
+          ports:
+            - containerPort: 5000
