@@ -1,0 +1,20 @@
+# Node
+
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+
+# Env files
+.env 
+.env.local
+
+# Git
+.git
+.gitignore
+
+# OS
+.DS_Store

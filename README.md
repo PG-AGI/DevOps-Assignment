@@ -1,125 +1,144 @@
-# DevOps Assignment
+# PGAGI Project – Dockerized Backend & Frontend
 
-This project consists of a FastAPI backend and a Next.js frontend that communicates with the backend.
+## 📌 Overview
+This project demonstrates a **containerized FastAPI backend** with a **Next.js frontend**, following DevOps best practices such as multi-stage Docker builds, non-root containers, environment-based configuration, and Docker Compose orchestration.
 
-## Project Structure
+The project was initially built to satisfy a backend containerization assignment and was later extended with a frontend and full end-to-end integration.
+
+---
+
+## 🏗️ Architecture
 
 ```
-.
-├── backend/               # FastAPI backend
-│   ├── app/
-│   │   └── main.py       # Main FastAPI application
-│   └── requirements.txt    # Python dependencies
-└── frontend/              # Next.js frontend
-    ├── pages/
-    │   └── index.js     # Main page
-    ├── public/            # Static files
-    └── package.json       # Node.js dependencies
+Browser
+  │
+  │  http://localhost:3000
+  ▼
+Frontend (Next.js container)
+  │
+  │  http://localhost:5000 (via browser)
+  ▼
+Backend (FastAPI container)
 ```
 
-## Prerequisites
+- The frontend is served on **port 3000**
+- The backend API is exposed on **port 5000**
+- Docker port mapping forwards host traffic to containers
 
-- Python 3.8+
-- Node.js 16+
-- npm or yarn
+---
 
-## Backend Setup
+## 🔧 Backend Details
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+### API Endpoints
 
-2. Create a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   ```
+| Method | Endpoint        | Description              |
+|------|----------------|--------------------------|
+| GET  | /api/health    | Health check endpoint     |
+| GET  | /api/message   | Returns a sample message  |
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Tech Stack
+- Python 3
+- FastAPI
+- Pytest
+- Docker (multi-stage build)
 
-4. Run the FastAPI server:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
+### Testing
+- Unit tests written using **pytest**
+- Tests are executed locally and during Docker build
 
-   The backend will be available at `http://localhost:8000`
+---
 
-## Frontend Setup
+## 🎨 Frontend Details
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
+### Tech Stack
+- Next.js
+- React
+- Axios
+- Docker (multi-stage build)
 
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn
-   ```
+### Functionality
+- Displays backend health status
+- Fetches and displays message from backend
+- Uses environment-based API configuration
 
-3. Configure the backend URL (if different from default):
-   - Open `.env.local`
-   - Update `NEXT_PUBLIC_API_URL` with your backend URL
-   - Example: `NEXT_PUBLIC_API_URL=https://your-backend-url.com`
+---
 
-4. Run the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+## 🐳 Docker & DevOps Practices
 
-   The frontend will be available at `http://localhost:3000`
+### Backend Dockerfile
+- Multi-stage build
+- Small runtime image
+- Runs as non-root user
+- Environment-based configuration
 
-## Changing the Backend URL
+### Frontend Dockerfile
+- Multi-stage build
+- Build-time environment variables (`NEXT_PUBLIC_API_URL`)
+- Optimized production image
 
-To change the backend URL that the frontend connects to:
+### Docker Compose
+- Orchestrates frontend and backend
+- Uses Docker Hub images
+- Exposes required ports
 
-1. Open the `.env.local` file in the frontend directory
-2. Update the `NEXT_PUBLIC_API_URL` variable with your new backend URL
-3. Save the file
-4. Restart the Next.js development server for changes to take effect
+---
 
-Example:
+## ▶️ How to Run the Project
+
+### Prerequisites
+- Docker
+- Docker Compose
+
+### Run using Docker Compose
+
+```bash
+docker compose pull
+docker compose up -d
 ```
-NEXT_PUBLIC_API_URL=https://your-new-backend-url.com
+
+### Access the Application
+- Frontend: http://localhost:3000
+- Backend Health: http://localhost:5000/api/health
+- Backend Message: http://localhost:5000/api/message
+
+---
+
+## 🧪 Local Development (Optional)
+
+### Backend
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pytest
+uvicorn app.main:app --reload
 ```
 
-## For deployment:
-   ```bash
-   npm run build
-   # or
-   yarn build
-   ```
+### Frontend
+```bash
+npm install
+npm run dev
+```
 
-   AND
+---
 
-   ```bash
-   npm run start
-   # or
-   yarn start
-   ```
+## 📦 Docker Hub Images
 
-   The frontend will be available at `http://localhost:3000`
+- Backend: `<dockerhub-username>/pgagi-backend:latest`
+- Frontend: `<dockerhub-username>/pgagi-frontend:latest`
 
-## Testing the Integration
+---
 
-1. Ensure both backend and frontend servers are running
-2. Open the frontend in your browser (default: http://localhost:3000)
-3. If everything is working correctly, you should see:
-   - A status message indicating the backend is connected
-   - The message from the backend: "You've successfully integrated the backend!"
-   - The current backend URL being used
+## ✨ Key Learnings
 
-## API Endpoints
+- Difference between build-time and runtime environment variables
+- Docker multi-stage build scoping
+- Docker DNS vs browser networking
+- Secure container practices
+- End-to-end containerized application setup
 
-- `GET /api/health`: Health check endpoint
-  - Returns: `{"status": "healthy", "message": "Backend is running successfully"}`
+---
 
-- `GET /api/message`: Get the integration message
-  - Returns: `{"message": "You've successfully integrated the backend!"}`
+## 🏁 Conclusion
+
+This project demonstrates a production-style containerized application with clear separation of concerns, best practices, and real-world debugging experience.

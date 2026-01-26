@@ -1,0 +1,69 @@
+name: CI - Develop
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
+    steps:
+      # Checkout
+      - uses: actions/checkout@v4
+
+      # Python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pytest
+
+      # Node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Frontend build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      # Configure AWS credentials FIRST
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+
+      # Docker login to ECR
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build & push images
+      - name: Build and push Docker images
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+
+          BACKEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-backend:$SHORT_SHA
+          FRONTEND_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pgagi-frontend:$SHORT_SHA
+
+          docker build -t $BACKEND_IMAGE backend
+          docker build -t $FRONTEND_IMAGE frontend
+
+          docker push $BACKEND_IMAGE
+          docker push $FRONTEND_IMAGE

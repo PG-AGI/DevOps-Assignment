@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  backend:
+    image: kavithakumari062001/pgagi-backend:latest
+    container_name: pgagi-backend
+    ports:
+      - "5000:5000"
+    environment:
+      APP_MESSAGE: "Hello from PGAGI Backend (Docker Hub)"
+    restart: unless-stopped
+
+  frontend:
+    image: kavithakumari062001/pgagi-frontend:latest
+    container_name: pgagi-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

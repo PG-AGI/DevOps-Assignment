@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.2.2"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest"
+  }
+
+}
