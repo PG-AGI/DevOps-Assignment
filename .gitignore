@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+build/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.env
+.env.local
+__pycache__/
+venv/

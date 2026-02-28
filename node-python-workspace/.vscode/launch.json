@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Frontend",
+            "skipFiles": ["<node_internals>/**"],
+            "program": "${workspaceFolder}/frontend/src/index.js",
+            "outFiles": ["${workspaceFolder}/frontend/**/*.js"],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        },
+        {
+            "name": "Python: Flask",
+            "type": "python",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "backend/app.py",
+                "FLASK_ENV": "development"
+            },
+            "justMyCode": true
+        }
+    ]
+}

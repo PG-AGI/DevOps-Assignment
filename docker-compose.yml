@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: devops-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app/main.py
+      - FLASK_ENV=development
+    volumes:
+      - ./backend:/app
+    command: python app/main.py
+
+  frontend:
+    build: ./frontend
+    container_name: devops-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      - backend
+
+networks:
+  default:
+    name: devops-network
