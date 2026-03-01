@@ -1,0 +1,34 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# Local execution
+*.log
+*.out
+
+# Provider lock files (we use version constraints)
+# .terraform.lock.hcl
+
+# Sensitive data
+*.pem
+*.key
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment-specific overrides
+dev_override.tfvars
+staging_override.tfvars
+prod_override.tfvars

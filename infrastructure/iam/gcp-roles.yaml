@@ -1,0 +1,82 @@
+# GCP Service Account Roles
+# Create a service account and attach these roles
+
+roles:
+  - roles/cloudrun.admin
+  - roles/storage.admin
+  - roles/secretmanager.admin
+  - roles/compute.admin
+  - roles/iam.serviceAccountUser
+  - roles/iam.serviceAccountAdmin
+  - roles/logging.logWriter
+  - roles/monitoring.metricWriter
+
+# Alternatively, create custom role with these permissions:
+
+permissions:
+  - cloudrun.services.create
+  - cloudrun.services.delete
+  - cloudrun.services.get
+  - cloudrun.services.update
+  - cloudrun.services.list
+  - cloudrun.revisions.list
+  - cloudrun.revisions.delete
+  - cloudrun.configurations.get
+  - cloudrun.configurations.list
+  - storage.buckets.create
+  - storage.buckets.delete
+  - storage.buckets.get
+  - storage.buckets.list
+  - storage.objects.create
+  - storage.objects.delete
+  - storage.objects.get
+  - storage.objects.list
+  - secretmanager.secrets.create
+  - secretmanager.secrets.delete
+  - secretmanager.secrets.get
+  - secretmanager.secrets.list
+  - secretmanager.versions.access
+  - secretmanager.versions.list
+  - compute.backendServices.create
+  - compute.backendServices.delete
+  - compute.backendServices.get
+  - compute.backendServices.list
+  - compute.backendServices.update
+  - compute.urlMaps.create
+  - compute.urlMaps.delete
+  - compute.urlMaps.get
+  - compute.urlMaps.list
+  - compute.urlMaps.update
+  - compute.targetHttpProxies.create
+  - compute.targetHttpProxies.delete
+  - compute.targetHttpProxies.get
+  - compute.targetHttpProxies.list
+  - compute.globalForwardingRules.create
+  - compute.globalForwardingRules.delete
+  - compute.globalForwardingRules.get
+  - compute.globalForwardingRules.list
+  - compute.networks.create
+  - compute.networks.delete
+  - compute.networks.get
+  - compute.networks.list
+  - compute.subnetworks.create
+  - compute.subnetworks.delete
+  - compute.subnetworks.get
+  - compute.subnetworks.list
+  - compute.firewalls.create
+  - compute.firewalls.delete
+  - compute.firewalls.get
+  - compute.firewalls.list
+  - compute.instances.create
+  - compute.instances.delete
+  - compute.instances.get
+  - compute.instances.list
+  - iam.serviceaccounts.create
+  - iam.serviceaccounts.delete
+  - iam.serviceaccounts.get
+  - iam.serviceaccounts.list
+  - iam.serviceaccounts.keys.create
+  - iam.serviceaccounts.keys.delete
+  - iam.serviceaccounts.keys.list
+  - resourcemanager.projectIamAdmin
+  - logging.logEntries.create

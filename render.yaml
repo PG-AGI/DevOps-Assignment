@@ -1,0 +1,29 @@
+# Render.com deployment configuration
+# Free tier deployment - no credit card required
+
+services:
+  - type: web
+    name: devops-backend
+    env: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+    scaling:
+      minInstances: 0
+      maxInstances: 1
+
+  - type: web
+    name: devops-frontend
+    env: node
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://devops-backend.onrender.com
+    routes:
+      - source: /
+        destination: /
