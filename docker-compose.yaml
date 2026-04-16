@@ -1,0 +1,23 @@
+services:
+  backend:
+    image: shriram2105/da-backend:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/app
+    enviornemt:
+      - ENV=development
+
+
+  frontend:
+    image: shriram2105/da-frontend:lates
+    ports: "3000:3000"
+      - 
+    volumes:
+      - ./frontend/app
+      - /app/node_modules
+      - /app/.next
+    envionment:
+      - NEXT_PUBLIC_API__URL=http://localhost:8000
+    depends_on:
+      - backend
